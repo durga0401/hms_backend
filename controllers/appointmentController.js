@@ -23,7 +23,7 @@ exports.createAppointment = async (req, res) => {
     const hasConflict = await Appointment.checkConflict(
       doctor_id,
       appointment_date,
-      appointment_time
+      appointment_time,
     );
     if (hasConflict) {
       return res.status(400).json({
@@ -36,7 +36,7 @@ exports.createAppointment = async (req, res) => {
     const slot = await DoctorAvailability.findSlot(
       doctor_id,
       appointment_date,
-      appointment_time
+      appointment_time,
     );
     if (slot && slot.is_booked) {
       return res.status(400).json({
@@ -222,7 +222,7 @@ exports.updateAppointmentStatus = async (req, res) => {
       const slot = await DoctorAvailability.findSlot(
         appointment.doctor_id,
         appointment.appointment_date,
-        appointment.appointment_time
+        appointment.appointment_time,
       );
       if (slot) {
         await DoctorAvailability.updateBookingStatus(slot.id, false);
@@ -297,7 +297,7 @@ exports.cancelAppointment = async (req, res) => {
     const slot = await DoctorAvailability.findSlot(
       appointment.doctor_id,
       appointment.appointment_date,
-      appointment.appointment_time
+      appointment.appointment_time,
     );
     if (slot) {
       await DoctorAvailability.updateBookingStatus(slot.id, false);
@@ -369,6 +369,53 @@ exports.getAppointmentsByStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to get appointments",
+      error: error.message,
+    });
+  }
+};
+
+// Delete appointment (Patient or Admin)
+exports.deleteAppointment = async (req, res) => {
+  try {
+    const appointmentId = req.params.id;
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    // Patient can only delete their own appointment
+    if (req.user.role === "PATIENT" && appointment.patient_id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to delete this appointment",
+      });
+    }
+
+    // Free up the slot if exists
+    const slot = await DoctorAvailability.findSlot(
+      appointment.doctor_id,
+      appointment.appointment_date,
+      appointment.appointment_time,
+    );
+    if (slot) {
+      await DoctorAvailability.updateBookingStatus(slot.id, false);
+    }
+
+    await Appointment.delete(appointmentId);
+
+    res.status(200).json({
+      success: true,
+      message: "Appointment deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete appointment",
       error: error.message,
     });
   }

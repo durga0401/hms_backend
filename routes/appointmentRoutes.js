@@ -2,13 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { body } = require("express-validator");
 const appointmentController = require("../controllers/appointmentController");
-const {
-  authenticate,
-  authorize,
-  isAdmin,
-  isDoctor,
-  isPatient,
-} = require("../middleware/auth");
+const { authenticate, authorize } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 
 // Validation rules
@@ -34,46 +28,39 @@ router.use(authenticate);
 // Patient routes
 router.post(
   "/",
-  isPatient,
+  authorize("PATIENT"),
   createAppointmentValidation,
   validate,
   appointmentController.createAppointment,
 );
 router.get(
-  "/my-appointments",
-  isPatient,
+  "/patient",
+  authorize("PATIENT"),
   appointmentController.getMyAppointments,
 );
-router.put("/:id/cancel", isPatient, appointmentController.cancelAppointment);
 
 // Doctor routes
 router.get(
-  "/doctor-appointments",
-  isDoctor,
+  "/doctor",
+  authorize("DOCTOR"),
   appointmentController.getDoctorAppointments,
 );
-
-// Admin routes
-router.get("/", isAdmin, appointmentController.getAllAppointments);
-router.get("/date/:date", isAdmin, appointmentController.getAppointmentsByDate);
-router.get(
-  "/status/:status",
-  isAdmin,
-  appointmentController.getAppointmentsByStatus,
-);
-
-// Doctor and Admin routes
 router.put(
   "/:id/status",
-  authorize("DOCTOR", "ADMIN"),
+  authorize("DOCTOR"),
   updateStatusValidation,
   validate,
   appointmentController.updateAppointmentStatus,
 );
 
-// Get single appointment (accessible by patient, doctor, admin)
-router.get("/:id", appointmentController.getAppointmentById);
+// Admin routes
+router.get("/", authorize("ADMIN"), appointmentController.getAllAppointments);
+
+// Patient and Admin routes
+router.delete(
+  "/:id",
+  authorize("PATIENT", "ADMIN"),
+  appointmentController.deleteAppointment,
+);
 
 module.exports = router;
-
-//eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiZW1haWwiOiJkb2N0b3JAdGVzdC5jb20iLCJyb2xlIjoiRE9DVE9SIiwiaWF0IjoxNzY4ODM0OTgxLCJleHAiOjE3Njk0Mzk3ODF9.0o788QJL6rlN-utyMrsyR9mWe0YnLRpko2JAlognfEg"
