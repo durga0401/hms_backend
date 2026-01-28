@@ -51,6 +51,21 @@ router.post(
   validate,
   doctorController.addAvailability,
 );
+
+// Doctor's own profile
+router.get(
+  "/me/profile",
+  authorize("DOCTOR"),
+  doctorController.getMyDoctorProfile,
+);
+router.put(
+  "/me/profile",
+  authorize("DOCTOR"),
+  updateDoctorValidation,
+  validate,
+  doctorController.updateDoctorProfile,
+);
+
 router.get(
   "/:id/availability",
   authorize("PATIENT"),

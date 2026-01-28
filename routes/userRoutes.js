@@ -8,6 +8,7 @@ router.use(authenticate);
 
 // Admin only routes
 router.get("/", isAdmin, userController.getAllUsers);
+router.get("/role/:role", isAdmin, userController.getUsersByRole);
 router.get("/:id", isAdmin, userController.getUserById);
 router.put("/:id", isAdmin, userController.updateUser);
 router.delete("/:id", isAdmin, userController.deleteUser);

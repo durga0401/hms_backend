@@ -176,7 +176,7 @@ exports.sendBroadcastNotification = async (req, res) => {
       userIds,
       title,
       message,
-      type || "ADMIN"
+      type || "ADMIN",
     );
 
     res.status(201).json({
@@ -195,7 +195,7 @@ exports.sendBroadcastNotification = async (req, res) => {
 // Get recent appointments
 exports.getRecentAppointments = async (req, res) => {
   try {
-    const limit = req.query.limit || 10;
+    const limit = parseInt(req.query.limit) || 10;
 
     const [appointments] = await pool.execute(
       `
@@ -208,9 +208,8 @@ exports.getRecentAppointments = async (req, res) => {
             JOIN doctors d ON a.doctor_id = d.id
             JOIN users u_doctor ON d.user_id = u_doctor.id
             ORDER BY a.created_at DESC
-            LIMIT ?
+            LIMIT ${limit}
         `,
-      [parseInt(limit)]
     );
 
     res.status(200).json({

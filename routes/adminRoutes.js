@@ -15,18 +15,6 @@ const createUserValidation = [
   body("role").isIn(["PATIENT", "DOCTOR", "ADMIN"]).withMessage("Invalid role"),
 ];
 
-const notificationValidation = [
-  body("user_id").isInt().withMessage("Valid user ID is required"),
-  body("title").trim().notEmpty().withMessage("Title is required"),
-  body("message").trim().notEmpty().withMessage("Message is required"),
-];
-
-const broadcastValidation = [
-  body("role").isIn(["PATIENT", "DOCTOR", "ADMIN"]).withMessage("Invalid role"),
-  body("title").trim().notEmpty().withMessage("Title is required"),
-  body("message").trim().notEmpty().withMessage("Message is required"),
-];
-
 // All routes require authentication and admin role
 router.use(authenticate);
 router.use(isAdmin);
@@ -40,21 +28,7 @@ router.post(
   "/users",
   createUserValidation,
   validate,
-  adminController.createUser
-);
-
-// Notifications
-router.post(
-  "/notifications",
-  notificationValidation,
-  validate,
-  adminController.sendNotification
-);
-router.post(
-  "/notifications/broadcast",
-  broadcastValidation,
-  validate,
-  adminController.sendBroadcastNotification
+  adminController.createUser,
 );
 
 module.exports = router;
