@@ -204,6 +204,17 @@ exports.updateAppointmentStatus = async (req, res) => {
       });
     }
 
+    // Prevent updating completed or cancelled appointments
+    if (
+      appointment.status === "COMPLETED" ||
+      appointment.status === "CANCELLED"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot update status of ${appointment.status.toLowerCase()} appointments`,
+      });
+    }
+
     // Check authorization for doctors
     if (req.user.role === "DOCTOR") {
       const doctor = await Doctor.findByUserId(req.user.id);
@@ -416,6 +427,157 @@ exports.deleteAppointment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to delete appointment",
+      error: error.message,
+    });
+  }
+};
+
+// Cancel appointment (Patient only)
+exports.cancelAppointment = async (req, res) => {
+  try {
+    const appointmentId = req.params.id;
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    // Patient can only cancel their own appointment
+    if (appointment.patient_id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to cancel this appointment",
+      });
+    }
+
+    // Check if appointment is already cancelled or completed
+    if (appointment.status === "CANCELLED") {
+      return res.status(400).json({
+        success: false,
+        message: "Appointment is already cancelled",
+      });
+    }
+
+    if (appointment.status === "COMPLETED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot cancel a completed appointment",
+      });
+    }
+
+    // Update status to cancelled
+    await Appointment.updateStatus(appointmentId, "CANCELLED");
+
+    // Free up the slot if exists
+    const slot = await DoctorAvailability.findSlot(
+      appointment.doctor_id,
+      appointment.appointment_date,
+      appointment.appointment_time,
+    );
+    if (slot) {
+      await DoctorAvailability.updateBookingStatus(slot.id, false);
+    }
+
+    // Create notification for doctor
+    const doctor = await Doctor.findById(appointment.doctor_id);
+    if (doctor) {
+      await Notification.create({
+        user_id: doctor.user_id,
+        title: "Appointment Cancelled",
+        message: `Patient has cancelled the appointment scheduled for ${appointment.appointment_date}`,
+        type: "APPOINTMENT",
+      });
+    }
+
+    const updatedAppointment = await Appointment.findById(appointmentId);
+
+    res.status(200).json({
+      success: true,
+      message: "Appointment cancelled successfully",
+      data: updatedAppointment,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to cancel appointment",
+      error: error.message,
+    });
+  }
+};
+
+// Add or update prescription (Doctor only)
+exports.addPrescription = async (req, res) => {
+  try {
+    const { prescription } = req.body;
+    const appointmentId = req.params.id;
+
+    if (!prescription || !prescription.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Prescription is required",
+      });
+    }
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: "Appointment not found",
+      });
+    }
+
+    // Check if the doctor owns this appointment
+    const doctor = await Doctor.findByUserId(req.user.id);
+    if (!doctor || appointment.doctor_id !== doctor.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to add prescription to this appointment",
+      });
+    }
+
+    // Check if appointment is cancelled
+    if (appointment.status === "CANCELLED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot add prescription to cancelled appointments",
+      });
+    }
+
+    // If already completed, just update the prescription
+    // If not completed, add prescription and mark as completed
+    if (appointment.status === "COMPLETED") {
+      await Appointment.updatePrescription(appointmentId, prescription);
+    } else {
+      await Appointment.addPrescription(appointmentId, prescription);
+
+      // Create notification for patient
+      await Notification.create({
+        user_id: appointment.patient_id,
+        title: "Appointment Completed",
+        message: `Your appointment on ${appointment.appointment_date} has been completed. A prescription has been added.`,
+        type: "APPOINTMENT",
+      });
+    }
+
+    const updatedAppointment = await Appointment.findById(appointmentId);
+
+    res.status(200).json({
+      success: true,
+      message:
+        appointment.status === "COMPLETED"
+          ? "Prescription updated successfully"
+          : "Prescription added and appointment marked as completed",
+      data: updatedAppointment,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to add prescription",
       error: error.message,
     });
   }

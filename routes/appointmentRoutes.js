@@ -38,6 +38,11 @@ router.get(
   authorize("PATIENT"),
   appointmentController.getMyAppointments,
 );
+router.put(
+  "/:id/cancel",
+  authorize("PATIENT"),
+  appointmentController.cancelAppointment,
+);
 
 // Doctor routes
 router.get(
@@ -51,6 +56,11 @@ router.put(
   updateStatusValidation,
   validate,
   appointmentController.updateAppointmentStatus,
+);
+router.put(
+  "/:id/prescription",
+  authorize("DOCTOR"),
+  appointmentController.addPrescription,
 );
 
 // Admin routes

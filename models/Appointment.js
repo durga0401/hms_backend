@@ -96,6 +96,24 @@ class Appointment {
     return result.affectedRows > 0;
   }
 
+  // Add or update prescription and mark as completed
+  static async addPrescription(id, prescription) {
+    const [result] = await pool.execute(
+      "UPDATE appointments SET prescription = ?, status = 'COMPLETED' WHERE id = ?",
+      [prescription, id],
+    );
+    return result.affectedRows > 0;
+  }
+
+  // Update prescription only (for already completed appointments)
+  static async updatePrescription(id, prescription) {
+    const [result] = await pool.execute(
+      "UPDATE appointments SET prescription = ? WHERE id = ?",
+      [prescription, id],
+    );
+    return result.affectedRows > 0;
+  }
+
   // Update appointment
   static async update(id, appointmentData) {
     const { appointment_date, appointment_time, reason, status } =
