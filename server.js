@@ -1,8 +1,10 @@
 const express = require("express");
 const cors = require("cors");
+const session = require("express-session");
 require("dotenv").config();
 
 const { testConnection } = require("./config/db");
+const { passport } = require("./config/passport");
 
 // Import routes
 const authRoutes = require("./routes/authRoutes");
@@ -16,9 +18,34 @@ const reportRoutes = require("./routes/reportRoutes");
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Session middleware (required for Passport)
+app.use(
+  session({
+    secret:
+      process.env.SESSION_SECRET ||
+      process.env.JWT_SECRET ||
+      "hospital-session-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  }),
+);
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Test database connection
 testConnection();

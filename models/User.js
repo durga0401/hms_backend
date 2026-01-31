@@ -9,7 +9,7 @@ class User {
 
     const [result] = await pool.execute(
       "INSERT INTO users (name, email, password, role, phone) VALUES (?, ?, ?, ?, ?)",
-      [name, email, hashedPassword, role, phone || null]
+      [name, email, hashedPassword, role, phone || null],
     );
     return result.insertId;
   }
@@ -26,7 +26,7 @@ class User {
   static async findById(id) {
     const [rows] = await pool.execute(
       "SELECT id, name, email, role, phone, created_at, updated_at FROM users WHERE id = ?",
-      [id]
+      [id],
     );
     return rows[0];
   }
@@ -34,7 +34,7 @@ class User {
   // Get all users (Admin only)
   static async findAll() {
     const [rows] = await pool.execute(
-      "SELECT id, name, email, role, phone, created_at, updated_at FROM users"
+      "SELECT id, name, email, role, phone, created_at, updated_at FROM users",
     );
     return rows;
   }
@@ -43,7 +43,7 @@ class User {
   static async findByRole(role) {
     const [rows] = await pool.execute(
       "SELECT id, name, email, role, phone, created_at, updated_at FROM users WHERE role = ?",
-      [role]
+      [role],
     );
     return rows;
   }
@@ -53,7 +53,7 @@ class User {
     const { name, phone } = userData;
     const [result] = await pool.execute(
       "UPDATE users SET name = ?, phone = ? WHERE id = ?",
-      [name, phone, id]
+      [name, phone, id],
     );
     return result.affectedRows > 0;
   }
@@ -69,7 +69,7 @@ class User {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     const [result] = await pool.execute(
       "UPDATE users SET password = ? WHERE id = ?",
-      [hashedPassword, id]
+      [hashedPassword, id],
     );
     return result.affectedRows > 0;
   }
@@ -77,6 +77,35 @@ class User {
   // Compare password
   static async comparePassword(plainPassword, hashedPassword) {
     return await bcrypt.compare(plainPassword, hashedPassword);
+  }
+
+  // Find user by Google ID
+  static async findByGoogleId(googleId) {
+    const [rows] = await pool.execute(
+      "SELECT id, name, email, role, phone, google_id, created_at, updated_at FROM users WHERE google_id = ?",
+      [googleId],
+    );
+    return rows[0];
+  }
+
+  // Create user with Google OAuth
+  static async createWithGoogle(userData) {
+    const { name, email, google_id, role } = userData;
+
+    const [result] = await pool.execute(
+      "INSERT INTO users (name, email, google_id, role) VALUES (?, ?, ?, ?)",
+      [name, email, google_id, role],
+    );
+    return result.insertId;
+  }
+
+  // Update user's Google ID (link account)
+  static async updateGoogleId(id, googleId) {
+    const [result] = await pool.execute(
+      "UPDATE users SET google_id = ? WHERE id = ?",
+      [googleId, id],
+    );
+    return result.affectedRows > 0;
   }
 }
 

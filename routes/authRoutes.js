@@ -4,6 +4,7 @@ const { body } = require("express-validator");
 const authController = require("../controllers/authController");
 const { authenticate } = require("../middleware/auth");
 const validate = require("../middleware/validate");
+const { passport, generateTokenForOAuthUser } = require("../config/passport");
 
 // Validation rules
 const registerValidation = [
@@ -39,7 +40,41 @@ router.put(
   authenticate,
   changePasswordValidation,
   validate,
-  authController.changePassword
+  authController.changePassword,
+);
+
+// Google OAuth Routes
+router.get(
+  "/google",
+  passport.authenticate("google", { scope: ["profile", "email"] }),
+);
+
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    session: false,
+    failureRedirect: "/login?error=oauth_failed",
+  }),
+  (req, res) => {
+    try {
+      // Generate JWT token for the authenticated user
+      const token = generateTokenForOAuthUser(req.user);
+      const user = {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role,
+      };
+
+      // Redirect to frontend with token
+      const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(
+        `${frontendURL}/oauth-callback?token=${token}&user=${encodeURIComponent(JSON.stringify(user))}`,
+      );
+    } catch (error) {
+      res.redirect("/login?error=oauth_failed");
+    }
+  },
 );
 
 module.exports = router;
