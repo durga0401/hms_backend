@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hms-backend
+    env_file:
+      - .env
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    # If you want to use a MySQL container, uncomment depends_on and the db service below
+    # depends_on:
+    #   - db
+
+  # db:
+  #   image: mysql:8.0
+  #   container_name: hms-mysql
+  #   environment:
+  #     MYSQL_ROOT_PASSWORD: root
+  #     MYSQL_DATABASE: hms
+  #     MYSQL_USER: admin
+  #     MYSQL_PASSWORD: password
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - hms_mysql_data:/var/lib/mysql
+  #   restart: unless-stopped
+
+# volumes:
+#   hms_mysql_data:

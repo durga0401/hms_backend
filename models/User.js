@@ -107,6 +107,24 @@ class User {
     );
     return result.affectedRows > 0;
   }
+
+  // Save password reset OTP hash and expiry
+  static async setPasswordResetOtp(id, otpHash, expiresAt) {
+    const [result] = await pool.execute(
+      "UPDATE users SET reset_otp_hash = ?, reset_otp_expires = ? WHERE id = ?",
+      [otpHash, expiresAt, id],
+    );
+    return result.affectedRows > 0;
+  }
+
+  // Clear password reset OTP
+  static async clearPasswordResetOtp(id) {
+    const [result] = await pool.execute(
+      "UPDATE users SET reset_otp_hash = NULL, reset_otp_expires = NULL WHERE id = ?",
+      [id],
+    );
+    return result.affectedRows > 0;
+  }
 }
 
 module.exports = User;

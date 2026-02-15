@@ -30,6 +30,22 @@ const changePasswordValidation = [
     .withMessage("New password must be at least 6 characters"),
 ];
 
+const forgotPasswordValidation = [
+  body("email").isEmail().withMessage("Valid email is required"),
+];
+
+const resetPasswordValidation = [
+  body("email").isEmail().withMessage("Valid email is required"),
+  body("otp")
+    .isLength({ min: 6, max: 6 })
+    .withMessage("OTP must be 6 digits")
+    .isNumeric()
+    .withMessage("OTP must be numeric"),
+  body("newPassword")
+    .isLength({ min: 6 })
+    .withMessage("New password must be at least 6 characters"),
+];
+
 // Routes
 router.post("/register", registerValidation, validate, authController.register);
 router.post("/login", loginValidation, validate, authController.login);
@@ -41,6 +57,18 @@ router.put(
   changePasswordValidation,
   validate,
   authController.changePassword,
+);
+router.post(
+  "/forgot-password",
+  forgotPasswordValidation,
+  validate,
+  authController.forgotPassword,
+);
+router.post(
+  "/reset-password",
+  resetPasswordValidation,
+  validate,
+  authController.resetPassword,
 );
 
 // Google OAuth Routes

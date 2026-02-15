@@ -1,5 +1,35 @@
 # Hospital Management System - Backend API
 
+## Docker (Build, Run, Share)
+
+### Build the image
+
+```bash
+cd backend
+docker build -t hms-backend:latest .
+```
+
+### Run the container on port 5000
+
+```bash
+docker run --name hms-backend --env-file .env -p 5000:5000 hms-backend:latest
+```
+
+### Share the image with a friend
+
+```bash
+docker save -o hms-backend.tar hms-backend:latest
+```
+
+Your friend can load and run it:
+
+```bash
+docker load -i hms-backend.tar
+docker run --name hms-backend --env-file .env -p 5000:5000 hms-backend:latest
+```
+
+> Note: If your database is on your host machine, set `DB_HOST=host.docker.internal` in `.env` before running the container.
+
 ## Setup Instructions
 
 ### 1. Install Dependencies
@@ -125,6 +155,30 @@ npm start
 ```json
 {
   "currentPassword": "password123",
+  "newPassword": "newpassword123"
+}
+```
+
+### Forgot Password (Send OTP)
+
+- **POST** `/api/auth/forgot-password`
+- **Body:**
+
+```json
+{
+  "email": "john@example.com"
+}
+```
+
+### Reset Password (Verify OTP)
+
+- **POST** `/api/auth/reset-password`
+- **Body:**
+
+```json
+{
+  "email": "john@example.com",
+  "otp": "123456",
   "newPassword": "newpassword123"
 }
 ```
