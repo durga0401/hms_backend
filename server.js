@@ -1,6 +1,9 @@
 const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const cookieParser = require("cookie-parser");
 require("dotenv").config();
 
 const { testConnection } = require("./config/db");
@@ -18,12 +21,14 @@ const reportRoutes = require("./routes/reportRoutes");
 const app = express();
 
 // Middleware
+app.use(helmet());
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
     credentials: true,
   }),
 );
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -58,6 +63,17 @@ app.use("/api/appointments", appointmentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/reports", reportRoutes);
+
+// CSRF error handler
+app.use((err, req, res, next) => {
+  if (err.code === "EBADCSRFTOKEN") {
+    return res.status(403).json({
+      success: false,
+      message: "Invalid CSRF token",
+    });
+  }
+  return next(err);
+});
 
 // Health check route
 app.get("/api/health", (req, res) => {

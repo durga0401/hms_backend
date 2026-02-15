@@ -51,6 +51,11 @@ router.post(
   validate,
   doctorController.addAvailability,
 );
+router.delete(
+  "/availability/:slotId",
+  authorize("DOCTOR"),
+  doctorController.deleteAvailability,
+);
 
 // Doctor's own profile
 router.get(

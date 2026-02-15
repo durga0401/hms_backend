@@ -5,15 +5,18 @@ const User = require("../models/User");
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    const headerToken = authHeader?.startsWith("Bearer ")
+      ? authHeader.split(" ")[1]
+      : null;
+    const cookieToken = req.cookies?.token || null;
+    const token = cookieToken || headerToken;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "Access denied. No token provided.",
       });
     }
-
-    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.id);

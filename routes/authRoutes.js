@@ -4,7 +4,33 @@ const { body } = require("express-validator");
 const authController = require("../controllers/authController");
 const { authenticate } = require("../middleware/auth");
 const validate = require("../middleware/validate");
-const { passport, generateTokenForOAuthUser } = require("../config/passport");
+const { passport } = require("../config/passport");
+const { logAuthEvent } = require("../utils/auditLogger");
+const csrf = require("csurf");
+const rateLimit = require("express-rate-limit");
+
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  },
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === "production" ? 20 : 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV !== "production",
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Validation rules
 const registerValidation = [
@@ -47,28 +73,65 @@ const resetPasswordValidation = [
 ];
 
 // Routes
-router.post("/register", registerValidation, validate, authController.register);
-router.post("/login", loginValidation, validate, authController.login);
+router.get("/csrf-token", csrfProtection, (req, res) => {
+  res.status(200).json({
+    success: true,
+    csrfToken: req.csrfToken(),
+  });
+});
+router.post(
+  "/register",
+  loginLimiter,
+  csrfProtection,
+  registerValidation,
+  validate,
+  authController.register,
+);
+router.post(
+  "/login",
+  loginLimiter,
+  csrfProtection,
+  loginValidation,
+  validate,
+  authController.login,
+);
 router.get("/profile", authenticate, authController.getProfile);
-router.put("/profile", authenticate, authController.updateProfile);
+router.put(
+  "/profile",
+  authenticate,
+  csrfProtection,
+  authController.updateProfile,
+);
 router.put(
   "/change-password",
   authenticate,
+  csrfProtection,
   changePasswordValidation,
   validate,
   authController.changePassword,
 );
+router.post("/logout", authenticate, csrfProtection, authController.logout);
 router.post(
   "/forgot-password",
+  otpLimiter,
+  csrfProtection,
   forgotPasswordValidation,
   validate,
   authController.forgotPassword,
 );
 router.post(
   "/reset-password",
+  otpLimiter,
+  csrfProtection,
   resetPasswordValidation,
   validate,
   authController.resetPassword,
+);
+router.post(
+  "/refresh",
+  loginLimiter,
+  csrfProtection,
+  authController.refreshToken,
 );
 
 // Google OAuth Routes
@@ -80,29 +143,73 @@ router.get(
 router.get(
   "/google/callback",
   passport.authenticate("google", {
-    session: false,
+    session: true,
     failureRedirect: "/login?error=oauth_failed",
   }),
   (req, res) => {
     try {
-      // Generate JWT token for the authenticated user
-      const token = generateTokenForOAuthUser(req.user);
-      const user = {
-        id: req.user.id,
-        name: req.user.name,
-        email: req.user.email,
-        role: req.user.role,
+      req.session.oauth = {
+        userId: req.user.id,
       };
 
-      // Redirect to frontend with token
+      // Redirect to frontend without token in URL
       const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(
-        `${frontendURL}/oauth-callback?token=${token}&user=${encodeURIComponent(JSON.stringify(user))}`,
-      );
+      res.redirect(`${frontendURL}/oauth-callback`);
     } catch (error) {
       res.redirect("/login?error=oauth_failed");
     }
   },
 );
+
+router.get("/oauth-session", async (req, res) => {
+  try {
+    if (!req.session?.oauth) {
+      return res.status(401).json({
+        success: false,
+        message: "OAuth session not found",
+      });
+    }
+
+    const { userId } = req.session.oauth;
+    const user = await require("../models/User").findById(userId);
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    await authController.issueAuthTokens(user, res);
+    req.session.oauth = null;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user,
+      },
+    });
+    logAuthEvent({
+      event: "oauth_session",
+      userId: user.id,
+      email: user.email,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      success: true,
+    });
+  } catch (error) {
+    logAuthEvent({
+      event: "oauth_session",
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      success: false,
+      details: error.message,
+    });
+    res.status(500).json({
+      success: false,
+      message: "Failed to complete OAuth session",
+      error: error.message,
+    });
+  }
+});
 
 module.exports = router;

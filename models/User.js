@@ -125,6 +125,33 @@ class User {
     );
     return result.affectedRows > 0;
   }
+
+  // Save refresh token hash and expiry
+  static async setRefreshToken(id, tokenHash, expiresAt) {
+    const [result] = await pool.execute(
+      "UPDATE users SET refresh_token_hash = ?, refresh_token_expires = ? WHERE id = ?",
+      [tokenHash, expiresAt, id],
+    );
+    return result.affectedRows > 0;
+  }
+
+  // Clear refresh token
+  static async clearRefreshToken(id) {
+    const [result] = await pool.execute(
+      "UPDATE users SET refresh_token_hash = NULL, refresh_token_expires = NULL WHERE id = ?",
+      [id],
+    );
+    return result.affectedRows > 0;
+  }
+
+  // Find user by refresh token hash
+  static async findByRefreshTokenHash(tokenHash) {
+    const [rows] = await pool.execute(
+      "SELECT * FROM users WHERE refresh_token_hash = ?",
+      [tokenHash],
+    );
+    return rows[0];
+  }
 }
 
 module.exports = User;
