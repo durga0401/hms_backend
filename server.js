@@ -94,7 +94,6 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
   res.status(500).json({
     success: false,
     message: "Internal server error",
@@ -104,9 +103,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(` Server running on port ${PORT}`);
-  console.log(` Base URL: http://localhost:${PORT}/api`);
-});
+app.listen(PORT, () => {});
 
 module.exports = app;
