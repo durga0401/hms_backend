@@ -9,6 +9,12 @@ on:
     branches:
       - main
 
+# Required permissions for security scanning
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 env:
   AWS_REGION: us-east-1 # Change to your AWS region
   ECR_REPOSITORY: hms-backend # Change to your ECR repository name
@@ -80,7 +86,7 @@ jobs:
         run: echo "Image pushed with digest ${{ steps.docker_build.outputs.digest }}"
 
       - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         if: github.event_name != 'pull_request'
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
@@ -89,7 +95,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: github.event_name != 'pull_request'
         with:
           sarif_file: "trivy-results.sarif"
