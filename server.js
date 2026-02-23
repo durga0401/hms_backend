@@ -20,6 +20,10 @@ const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
 
+// Trust proxy when behind a load balancer (AWS ALB, nginx, etc.)
+// This is required for express-rate-limit and secure cookies to work correctly
+app.set("trust proxy", 1);
+
 // Middleware
 app.use(helmet());
 app.use(
