@@ -31,7 +31,8 @@ const setAuthCookie = (res, token) => {
   res.cookie("token", token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Only enable secure cookies if explicitly set (for HTTPS)
+    secure: process.env.COOKIE_SECURE === "true",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
@@ -41,7 +42,8 @@ const setRefreshCookie = (res, token) => {
   res.cookie("refresh_token", token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Only enable secure cookies if explicitly set (for HTTPS)
+    secure: process.env.COOKIE_SECURE === "true",
     maxAge: days * 24 * 60 * 60 * 1000,
   });
 };
