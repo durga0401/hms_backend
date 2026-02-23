@@ -13,7 +13,9 @@ const csrfProtection = csrf({
   cookie: {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Only enable secure cookies if explicitly set (for HTTPS)
+    // For HTTP-only deployments, keep this false
+    secure: process.env.CSRF_SECURE_COOKIE === "true",
   },
 });
 

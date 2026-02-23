@@ -18,6 +18,8 @@ permissions:
 env:
   AWS_REGION: us-east-1 # Change to your AWS region
   ECR_REPOSITORY: hms-backend # Change to your ECR repository name
+  ECS_CLUSTER: hms-cluster
+  ECS_SERVICE: hms-backend-service
 
 jobs:
   build-and-push:
@@ -99,4 +101,14 @@ jobs:
         if: github.event_name != 'pull_request'
         with:
           sarif_file: "trivy-results.sarif"
+        continue-on-error: true
+
+      # Deploy to ECS (only on main branch)
+      - name: Deploy to Amazon ECS
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --force-new-deployment
         continue-on-error: true
