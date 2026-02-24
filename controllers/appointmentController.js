@@ -226,6 +226,21 @@ exports.updateAppointmentStatus = async (req, res) => {
       }
     }
 
+    // Prevent completing appointment before the scheduled date
+    if (status === "COMPLETED") {
+      const appointmentDate = new Date(appointment.appointment_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      appointmentDate.setHours(0, 0, 0, 0);
+      
+      if (appointmentDate > today) {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot complete an appointment before the scheduled date",
+        });
+      }
+    }
+
     await Appointment.updateStatus(appointmentId, status);
 
     // If cancelled, free up the slot
@@ -546,6 +561,21 @@ exports.addPrescription = async (req, res) => {
         success: false,
         message: "Cannot add prescription to cancelled appointments",
       });
+    }
+
+    // Prevent completing appointment before the scheduled date
+    if (appointment.status !== "COMPLETED") {
+      const appointmentDate = new Date(appointment.appointment_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      appointmentDate.setHours(0, 0, 0, 0);
+      
+      if (appointmentDate > today) {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot add prescription before the scheduled appointment date",
+        });
+      }
     }
 
     // If already completed, just update the prescription
