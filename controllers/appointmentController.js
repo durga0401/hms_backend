@@ -232,7 +232,7 @@ exports.updateAppointmentStatus = async (req, res) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       appointmentDate.setHours(0, 0, 0, 0);
-      
+
       if (appointmentDate > today) {
         return res.status(400).json({
           success: false,
@@ -569,11 +569,12 @@ exports.addPrescription = async (req, res) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       appointmentDate.setHours(0, 0, 0, 0);
-      
+
       if (appointmentDate > today) {
         return res.status(400).json({
           success: false,
-          message: "Cannot add prescription before the scheduled appointment date",
+          message:
+            "Cannot add prescription before the scheduled appointment date",
         });
       }
     }

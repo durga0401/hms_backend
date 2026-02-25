@@ -211,9 +211,8 @@ exports.getRecentAppointments = async (req, res) => {
             JOIN doctors d ON a.doctor_id = d.id
             JOIN users u_doctor ON d.user_id = u_doctor.id
             ORDER BY a.created_at DESC
-            LIMIT ?
+            LIMIT ${parseInt(limit, 10)}
         `,
-      [limit],
     );
 
     res.status(200).json({
