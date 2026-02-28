@@ -74,6 +74,15 @@ const resetPasswordValidation = [
     .withMessage("New password must be at least 6 characters"),
 ];
 
+const verifyOtpValidation = [
+  body("email").isEmail().withMessage("Valid email is required"),
+  body("otp")
+    .isLength({ min: 6, max: 6 })
+    .withMessage("OTP must be 6 digits")
+    .isNumeric()
+    .withMessage("OTP must be numeric"),
+];
+
 // Routes
 router.get("/csrf-token", csrfProtection, (req, res) => {
   res.status(200).json({
@@ -81,6 +90,34 @@ router.get("/csrf-token", csrfProtection, (req, res) => {
     csrfToken: req.csrfToken(),
   });
 });
+
+// Registration with OTP verification
+router.post(
+  "/register/send-otp",
+  otpLimiter,
+  csrfProtection,
+  registerValidation,
+  validate,
+  authController.sendRegistrationOtp,
+);
+router.post(
+  "/register/verify-otp",
+  otpLimiter,
+  csrfProtection,
+  verifyOtpValidation,
+  validate,
+  authController.verifyRegistrationOtp,
+);
+router.post(
+  "/register/resend-otp",
+  otpLimiter,
+  csrfProtection,
+  [body("email").isEmail().withMessage("Valid email is required")],
+  validate,
+  authController.resendRegistrationOtp,
+);
+
+// Legacy register (for backward compatibility)
 router.post(
   "/register",
   loginLimiter,

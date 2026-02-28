@@ -3,8 +3,11 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const User = require("../models/User");
 const Doctor = require("../models/Doctor");
-const { sendPasswordResetOtp } = require("../utils/email");
+const { sendPasswordResetOtp, sendRegistrationOtp } = require("../utils/email");
 const { logAuthEvent } = require("../utils/auditLogger");
+
+// In-memory store for pending registrations (use Redis in production)
+const pendingRegistrations = new Map();
 
 // Generate JWT token
 const generateToken = (user) => {
@@ -67,7 +70,227 @@ const issueAuthTokens = async (user, res) => {
   setRefreshCookie(res, refreshToken);
 };
 
-// Register a new user
+// Clean up expired pending registrations periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [email, data] of pendingRegistrations.entries()) {
+    if (data.expiresAt < now) {
+      pendingRegistrations.delete(email);
+    }
+  }
+}, 60000); // Every minute
+
+// Step 1: Send registration OTP
+exports.sendRegistrationOtp = async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      password,
+      role,
+      phone,
+      specialization,
+      experience,
+      qualification,
+      consultation_fee,
+    } = req.body;
+
+    // Check if user already exists
+    const existingUser = await User.findByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this email already exists",
+      });
+    }
+
+    // Generate OTP
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Store pending registration data
+    pendingRegistrations.set(email, {
+      name,
+      email,
+      password,
+      role,
+      phone,
+      specialization,
+      experience,
+      qualification,
+      consultation_fee,
+      otpHash,
+      expiresAt,
+    });
+
+    // Send OTP email
+    await sendRegistrationOtp(email, otp, name);
+
+    res.status(200).json({
+      success: true,
+      message: "OTP sent to your email. Please verify to complete registration.",
+    });
+
+    logAuthEvent({
+      event: "registration_otp_sent",
+      email,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      success: true,
+    });
+  } catch (error) {
+    logAuthEvent({
+      event: "registration_otp_sent",
+      email: req.body?.email || null,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      success: false,
+      details: error.message,
+    });
+    res.status(500).json({
+      success: false,
+      message: "Failed to send OTP",
+      error: error.message,
+    });
+  }
+};
+
+// Step 2: Verify OTP and complete registration
+exports.verifyRegistrationOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    // Get pending registration
+    const pendingData = pendingRegistrations.get(email);
+    if (!pendingData) {
+      return res.status(400).json({
+        success: false,
+        message: "No pending registration found. Please start registration again.",
+      });
+    }
+
+    // Check if OTP expired
+    if (pendingData.expiresAt < Date.now()) {
+      pendingRegistrations.delete(email);
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired. Please request a new one.",
+      });
+    }
+
+    // Verify OTP
+    const isValidOtp = await bcrypt.compare(otp, pendingData.otpHash);
+    if (!isValidOtp) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP. Please try again.",
+      });
+    }
+
+    // Create user
+    const { name, password, role, phone, specialization, experience, qualification, consultation_fee } = pendingData;
+    const userId = await User.create({ name, email, password, role, phone });
+
+    // If registering as doctor, create doctor profile
+    if (role === "DOCTOR") {
+      await Doctor.create({
+        user_id: userId,
+        specialization,
+        experience,
+        qualification,
+        consultation_fee,
+      });
+    }
+
+    // Remove from pending registrations
+    pendingRegistrations.delete(email);
+
+    const user = await User.findById(userId);
+    await issueAuthTokens(user, res);
+
+    res.status(201).json({
+      success: true,
+      message: "Registration successful! Welcome to MediCare.",
+      data: {
+        user,
+      },
+    });
+
+    logAuthEvent({
+      event: "register",
+      userId: user.id,
+      email: user.email,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      success: true,
+    });
+  } catch (error) {
+    logAuthEvent({
+      event: "register",
+      email: req.body?.email || null,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      success: false,
+      details: error.message,
+    });
+    res.status(500).json({
+      success: false,
+      message: "Registration failed",
+      error: error.message,
+    });
+  }
+};
+
+// Resend registration OTP
+exports.resendRegistrationOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Get pending registration
+    const pendingData = pendingRegistrations.get(email);
+    if (!pendingData) {
+      return res.status(400).json({
+        success: false,
+        message: "No pending registration found. Please start registration again.",
+      });
+    }
+
+    // Generate new OTP
+    const otp = generateOtp();
+    const otpHash = await bcrypt.hash(otp, 10);
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Update pending registration with new OTP
+    pendingData.otpHash = otpHash;
+    pendingData.expiresAt = expiresAt;
+    pendingRegistrations.set(email, pendingData);
+
+    // Send OTP email
+    await sendRegistrationOtp(email, otp, pendingData.name);
+
+    res.status(200).json({
+      success: true,
+      message: "New OTP sent to your email.",
+    });
+
+    logAuthEvent({
+      event: "registration_otp_resent",
+      email,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      success: true,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to resend OTP",
+      error: error.message,
+    });
+  }
+};
+
+// Legacy register (keeping for backward compatibility - can be removed later)
 exports.register = async (req, res) => {
   try {
     const {
