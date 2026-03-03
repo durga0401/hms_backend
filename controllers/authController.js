@@ -129,7 +129,8 @@ exports.sendRegistrationOtp = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "OTP sent to your email. Please verify to complete registration.",
+      message:
+        "OTP sent to your email. Please verify to complete registration.",
     });
 
     logAuthEvent({
@@ -166,7 +167,8 @@ exports.verifyRegistrationOtp = async (req, res) => {
     if (!pendingData) {
       return res.status(400).json({
         success: false,
-        message: "No pending registration found. Please start registration again.",
+        message:
+          "No pending registration found. Please start registration again.",
       });
     }
 
@@ -189,7 +191,16 @@ exports.verifyRegistrationOtp = async (req, res) => {
     }
 
     // Create user
-    const { name, password, role, phone, specialization, experience, qualification, consultation_fee } = pendingData;
+    const {
+      name,
+      password,
+      role,
+      phone,
+      specialization,
+      experience,
+      qualification,
+      consultation_fee,
+    } = pendingData;
     const userId = await User.create({ name, email, password, role, phone });
 
     // If registering as doctor, create doctor profile
@@ -252,7 +263,8 @@ exports.resendRegistrationOtp = async (req, res) => {
     if (!pendingData) {
       return res.status(400).json({
         success: false,
-        message: "No pending registration found. Please start registration again.",
+        message:
+          "No pending registration found. Please start registration again.",
       });
     }
 
