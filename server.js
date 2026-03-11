@@ -46,9 +46,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      // Only enable secure cookies if explicitly set (for HTTPS)
-      // For HTTP-only deployments, keep this false
-      secure: process.env.COOKIE_SECURE === "true",
+      // For cross-origin (CloudFront), use 'none' with secure=true
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   }),

@@ -12,10 +12,10 @@ const rateLimit = require("express-rate-limit");
 const csrfProtection = csrf({
   cookie: {
     httpOnly: true,
-    sameSite: "lax",
-    // Only enable secure cookies if explicitly set (for HTTPS)
-    // For HTTP-only deployments, keep this false
-    secure: process.env.CSRF_SECURE_COOKIE === "true",
+    // For cross-origin (CloudFront), use 'none' with secure=true
+    // For same-origin, use 'lax'
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
   },
 });
 

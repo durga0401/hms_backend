@@ -190,3 +190,57 @@ output "api_url" {
   value       = "http://${aws_eip.hms_backend_eip.public_ip}:5000"
   description = "Backend API URL"
 }
+
+# CloudFront Distribution for Backend API (HTTPS termination)
+resource "aws_cloudfront_distribution" "api_distribution" {
+  enabled         = true
+  comment         = "HMS Backend API CloudFront Distribution"
+  price_class     = "PriceClass_100"  # Use only North America and Europe (cheapest)
+
+  origin {
+    domain_name = aws_instance.hms_backend.public_dns
+    origin_id   = "hms-backend-ec2"
+
+    custom_origin_config {
+      http_port              = 5000
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD", "OPTIONS"]
+    target_origin_id       = "hms-backend-ec2"
+    viewer_protocol_policy = "https-only"
+
+    # Disable caching for API
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"  # CachingDisabled
+    origin_request_policy_id = "33f36d7e-f396-46d9-90e0-52428a34d9dc"  # AllViewerAndCloudFrontHeaders-2022-06
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+
+  tags = {
+    Name = "hms-backend-api-cloudfront"
+  }
+}
+
+output "api_cloudfront_url" {
+  value       = "https://${aws_cloudfront_distribution.api_distribution.domain_name}"
+  description = "Backend API CloudFront URL (HTTPS)"
+}
+
+output "cloudfront_distribution_id" {
+  value       = aws_cloudfront_distribution.api_distribution.id
+  description = "CloudFront Distribution ID"
+}
