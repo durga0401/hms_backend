@@ -59,14 +59,14 @@ jobs:
           script: |
             # Login to ECR
             aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 070648356305.dkr.ecr.eu-north-1.amazonaws.com
-            
+
             # Stop and remove existing container
             docker stop hms-backend || true
             docker rm hms-backend || true
-            
+
             # Pull latest image
             docker pull 070648356305.dkr.ecr.eu-north-1.amazonaws.com/hms-backend:latest
-            
+
             # Run new container
             docker run -d \
               --name hms-backend \
@@ -74,6 +74,6 @@ jobs:
               -p 5000:5000 \
               --env-file /home/ec2-user/.env \
               070648356305.dkr.ecr.eu-north-1.amazonaws.com/hms-backend:latest
-            
+
             echo "Deployment complete!"
             docker ps

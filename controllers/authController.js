@@ -68,7 +68,7 @@ const issueAuthTokens = async (user, res) => {
   await User.setRefreshToken(user.id, refreshHash, refreshExpires);
   setAuthCookie(res, token);
   setRefreshCookie(res, refreshToken);
-  
+
   // Return tokens for localStorage storage (cross-origin support)
   return { token, refreshToken };
 };
@@ -428,7 +428,7 @@ exports.login = async (req, res) => {
       message: "Login successful",
       data: {
         user: userWithoutPassword,
-        token: tokens.token,  // Include token for localStorage
+        token: tokens.token, // Include token for localStorage
       },
     });
     logAuthEvent({

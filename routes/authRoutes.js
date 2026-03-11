@@ -126,11 +126,7 @@ router.post(
   authController.login,
 );
 router.get("/profile", authenticate, authController.getProfile);
-router.put(
-  "/profile",
-  authenticate,
-  authController.updateProfile,
-);
+router.put("/profile", authenticate, authController.updateProfile);
 router.put(
   "/change-password",
   authenticate,
@@ -153,11 +149,7 @@ router.post(
   validate,
   authController.resetPassword,
 );
-router.post(
-  "/refresh",
-  loginLimiter,
-  authController.refreshToken,
-);
+router.post("/refresh", loginLimiter, authController.refreshToken);
 
 // Google OAuth Routes
 router.get(
@@ -204,13 +196,14 @@ router.get("/oauth-session", async (req, res) => {
       });
     }
 
-    await authController.issueAuthTokens(user, res);
+    const tokens = await authController.issueAuthTokens(user, res);
     req.session.oauth = null;
 
     res.status(200).json({
       success: true,
       data: {
         user,
+        token: tokens.token,  // Include token for localStorage
       },
     });
     logAuthEvent({
