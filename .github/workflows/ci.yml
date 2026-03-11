@@ -39,4 +39,41 @@ jobs:
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:latest" >> $GITHUB_OUTPUT
+        id: build
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Login to ECR
+            aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 070648356305.dkr.ecr.eu-north-1.amazonaws.com
+            
+            # Stop and remove existing container
+            docker stop hms-backend || true
+            docker rm hms-backend || true
+            
+            # Pull latest image
+            docker pull 070648356305.dkr.ecr.eu-north-1.amazonaws.com/hms-backend:latest
+            
+            # Run new container
+            docker run -d \
+              --name hms-backend \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              --env-file /home/ec2-user/.env \
+              070648356305.dkr.ecr.eu-north-1.amazonaws.com/hms-backend:latest
+            
+            echo "Deployment complete!"
+            docker ps
