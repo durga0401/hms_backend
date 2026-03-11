@@ -6,28 +6,12 @@ const { authenticate } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { passport } = require("../config/passport");
 const { logAuthEvent } = require("../utils/auditLogger");
-const { doubleCsrf } = require("csrf-csrf");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 
-// Setup CSRF protection using csrf-csrf
-const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
-  getSecret: () => process.env.CSRF_SECRET || process.env.JWT_SECRET || "csrf-secret-key",
-  cookieName: "__csrf",
-  cookieOptions: {
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-  },
-  size: 64,
-  getTokenFromRequest: (req) => req.headers["x-csrf-token"],
-});
-
-// Wrapper for CSRF protection
-const csrfProtection = (req, res, next) => {
-  doubleCsrfProtection(req, res, next);
-};
+// Note: CSRF protection is not needed because we use JWT tokens sent via
+// Authorization header (not cookies). CSRF attacks exploit automatic cookie
+// submission, which doesn't apply to our localStorage + header-based auth.
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -94,27 +78,19 @@ const verifyOtpValidation = [
 ];
 
 // Routes
+// CSRF token endpoint - returns a simple token for legacy compatibility
 router.get("/csrf-token", (req, res) => {
-  try {
-    const csrfToken = generateCsrfToken(req, res);
-    res.status(200).json({
-      success: true,
-      csrfToken,
-    });
-  } catch (error) {
-    console.error("CSRF token generation error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to generate CSRF token",
-    });
-  }
+  const csrfToken = crypto.randomBytes(32).toString("hex");
+  res.status(200).json({
+    success: true,
+    csrfToken,
+  });
 });
 
 // Registration with OTP verification
 router.post(
   "/register/send-otp",
   otpLimiter,
-  csrfProtection,
   registerValidation,
   validate,
   authController.sendRegistrationOtp,
@@ -122,7 +98,6 @@ router.post(
 router.post(
   "/register/verify-otp",
   otpLimiter,
-  csrfProtection,
   verifyOtpValidation,
   validate,
   authController.verifyRegistrationOtp,
@@ -130,7 +105,6 @@ router.post(
 router.post(
   "/register/resend-otp",
   otpLimiter,
-  csrfProtection,
   [body("email").isEmail().withMessage("Valid email is required")],
   validate,
   authController.resendRegistrationOtp,
@@ -140,7 +114,6 @@ router.post(
 router.post(
   "/register",
   loginLimiter,
-  csrfProtection,
   registerValidation,
   validate,
   authController.register,
@@ -148,7 +121,6 @@ router.post(
 router.post(
   "/login",
   loginLimiter,
-  csrfProtection,
   loginValidation,
   validate,
   authController.login,
@@ -157,22 +129,19 @@ router.get("/profile", authenticate, authController.getProfile);
 router.put(
   "/profile",
   authenticate,
-  csrfProtection,
   authController.updateProfile,
 );
 router.put(
   "/change-password",
   authenticate,
-  csrfProtection,
   changePasswordValidation,
   validate,
   authController.changePassword,
 );
-router.post("/logout", authenticate, csrfProtection, authController.logout);
+router.post("/logout", authenticate, authController.logout);
 router.post(
   "/forgot-password",
   otpLimiter,
-  csrfProtection,
   forgotPasswordValidation,
   validate,
   authController.forgotPassword,
@@ -180,7 +149,6 @@ router.post(
 router.post(
   "/reset-password",
   otpLimiter,
-  csrfProtection,
   resetPasswordValidation,
   validate,
   authController.resetPassword,
@@ -188,7 +156,6 @@ router.post(
 router.post(
   "/refresh",
   loginLimiter,
-  csrfProtection,
   authController.refreshToken,
 );
 
