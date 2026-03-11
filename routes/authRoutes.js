@@ -7,18 +7,20 @@ const validate = require("../middleware/validate");
 const { passport } = require("../config/passport");
 const { logAuthEvent } = require("../utils/auditLogger");
 const { doubleCsrf } = require("csrf-csrf");
+const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 
 // Setup CSRF protection using csrf-csrf
 const { generateToken, doubleCsrfProtection } = doubleCsrf({
-  getSecret: () => process.env.CSRF_SECRET || process.env.JWT_SECRET,
-  cookieName: "_csrf",
+  getSecret: () => process.env.CSRF_SECRET || process.env.JWT_SECRET || "csrf-secret-key",
+  cookieName: "__csrf",
   cookieOptions: {
     httpOnly: true,
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
   },
+  size: 64,
   getTokenFromRequest: (req) => req.headers["x-csrf-token"],
 });
 
@@ -93,11 +95,19 @@ const verifyOtpValidation = [
 
 // Routes
 router.get("/csrf-token", (req, res) => {
-  const csrfToken = generateToken(req, res);
-  res.status(200).json({
-    success: true,
-    csrfToken,
-  });
+  try {
+    const csrfToken = generateToken(req, res);
+    res.status(200).json({
+      success: true,
+      csrfToken,
+    });
+  } catch (error) {
+    console.error("CSRF token generation error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate CSRF token",
+    });
+  }
 });
 
 // Registration with OTP verification
