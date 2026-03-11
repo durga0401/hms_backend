@@ -33,9 +33,9 @@ const generateOtp = () => {
 const setAuthCookie = (res, token) => {
   res.cookie("token", token, {
     httpOnly: true,
-    sameSite: "lax",
-    // Only enable secure cookies if explicitly set (for HTTPS)
-    secure: process.env.COOKIE_SECURE === "true",
+    // For cross-origin (CloudFront), use 'none' with secure=true
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
@@ -44,9 +44,9 @@ const setRefreshCookie = (res, token) => {
   const days = Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS || 14);
   res.cookie("refresh_token", token, {
     httpOnly: true,
-    sameSite: "lax",
-    // Only enable secure cookies if explicitly set (for HTTPS)
-    secure: process.env.COOKIE_SECURE === "true",
+    // For cross-origin (CloudFront), use 'none' with secure=true
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: days * 24 * 60 * 60 * 1000,
   });
 };
@@ -68,6 +68,9 @@ const issueAuthTokens = async (user, res) => {
   await User.setRefreshToken(user.id, refreshHash, refreshExpires);
   setAuthCookie(res, token);
   setRefreshCookie(res, refreshToken);
+  
+  // Return tokens for localStorage storage (cross-origin support)
+  return { token, refreshToken };
 };
 
 // Clean up expired pending registrations periodically
@@ -415,7 +418,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    await issueAuthTokens(user, res);
+    const tokens = await issueAuthTokens(user, res);
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
@@ -425,6 +428,7 @@ exports.login = async (req, res) => {
       message: "Login successful",
       data: {
         user: userWithoutPassword,
+        token: tokens.token,  // Include token for localStorage
       },
     });
     logAuthEvent({
