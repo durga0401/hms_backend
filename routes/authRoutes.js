@@ -11,7 +11,7 @@ const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 
 // Setup CSRF protection using csrf-csrf
-const { generateToken, doubleCsrfProtection } = doubleCsrf({
+const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => process.env.CSRF_SECRET || process.env.JWT_SECRET || "csrf-secret-key",
   cookieName: "__csrf",
   cookieOptions: {
@@ -96,7 +96,7 @@ const verifyOtpValidation = [
 // Routes
 router.get("/csrf-token", (req, res) => {
   try {
-    const csrfToken = generateToken(req, res);
+    const csrfToken = generateCsrfToken(req, res);
     res.status(200).json({
       success: true,
       csrfToken,
