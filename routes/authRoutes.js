@@ -6,18 +6,26 @@ const { authenticate } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { passport } = require("../config/passport");
 const { logAuthEvent } = require("../utils/auditLogger");
-const csrf = require("csurf");
+const { doubleCsrf } = require("csrf-csrf");
 const rateLimit = require("express-rate-limit");
 
-const csrfProtection = csrf({
-  cookie: {
+// Setup CSRF protection using csrf-csrf
+const { generateToken, doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => process.env.CSRF_SECRET || process.env.JWT_SECRET,
+  cookieName: "_csrf",
+  cookieOptions: {
     httpOnly: true,
-    // For cross-origin (CloudFront), use 'none' with secure=true
-    // For same-origin, use 'lax'
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     secure: process.env.NODE_ENV === "production",
+    path: "/",
   },
+  getTokenFromRequest: (req) => req.headers["x-csrf-token"],
 });
+
+// Wrapper for CSRF protection
+const csrfProtection = (req, res, next) => {
+  doubleCsrfProtection(req, res, next);
+};
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -84,10 +92,11 @@ const verifyOtpValidation = [
 ];
 
 // Routes
-router.get("/csrf-token", csrfProtection, (req, res) => {
+router.get("/csrf-token", (req, res) => {
+  const csrfToken = generateToken(req, res);
   res.status(200).json({
     success: true,
-    csrfToken: req.csrfToken(),
+    csrfToken,
   });
 });
 

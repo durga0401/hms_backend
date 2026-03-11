@@ -70,9 +70,9 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/reports", reportRoutes);
 
-// CSRF error handler
+// CSRF error handler (csrf-csrf throws InvalidCsrfTokenError)
 app.use((err, req, res, next) => {
-  if (err.code === "EBADCSRFTOKEN") {
+  if (err.code === "EBADCSRFTOKEN" || err.message === "invalid csrf token") {
     return res.status(403).json({
       success: false,
       message: "Invalid CSRF token",
