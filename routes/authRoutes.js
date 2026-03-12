@@ -160,24 +160,46 @@ router.get(
 router.get(
   "/google/callback",
   passport.authenticate("google", {
-    session: true,
+    session: false, // Don't use sessions for OAuth
     failureRedirect: "/login?error=oauth_failed",
   }),
-  (req, res) => {
+  async (req, res) => {
     try {
-      req.session.oauth = {
-        userId: req.user.id,
-      };
+      const user = req.user;
+      if (!user) {
+        throw new Error("User not found");
+      }
 
-      // Redirect to frontend without token in URL
+      // Generate JWT token directly
+      const tokens = await authController.issueAuthTokens(user, res);
+      
+      // Redirect to frontend with token in URL (will be stored in localStorage)
       const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendURL}/oauth-callback`);
+      res.redirect(`${frontendURL}/oauth-callback?token=${tokens.token}`);
+      
+      logAuthEvent({
+        event: "google_oauth_callback",
+        userId: user.id,
+        email: user.email,
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+        success: true,
+      });
     } catch (error) {
-      res.redirect("/login?error=oauth_failed");
+      logAuthEvent({
+        event: "google_oauth_callback",
+        ip: req.ip,
+        userAgent: req.get("user-agent"),
+        success: false,
+        details: error.message,
+      });
+      const frontendURL = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendURL}/login?error=oauth_failed`);
     }
   },
 );
 
+// OAuth session endpoint - deprecated but kept for backward compatibility
 router.get("/oauth-session", async (req, res) => {
   try {
     if (!req.session?.oauth) {
@@ -203,7 +225,7 @@ router.get("/oauth-session", async (req, res) => {
       success: true,
       data: {
         user,
-        token: tokens.token,  // Include token for localStorage
+        token: tokens.token, // Include token for localStorage
       },
     });
     logAuthEvent({
