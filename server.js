@@ -24,11 +24,35 @@ const app = express();
 // This is required for express-rate-limit and secure cookies to work correctly
 app.set("trust proxy", 1);
 
+function parseCorsAllowlist() {
+  const raw = process.env.FRONTEND_URL || "http://localhost:3000";
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function isLocalDevOrigin(origin) {
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 // Middleware
 app.use(helmet());
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (parseCorsAllowlist().includes(origin)) return callback(null, true);
+      if (process.env.NODE_ENV !== "production" && isLocalDevOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
   }),
 );
@@ -57,9 +81,6 @@ app.use(
 // Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Test database connection
-testConnection();
 
 // API Routes
 app.use("/api/auth", authRoutes);
@@ -109,8 +130,19 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5001;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+async function start() {
+  try {
+    await testConnection();
+    console.log("Database connection OK");
+  } catch (err) {
+    console.error("Database connection failed:", err.message);
+    process.exit(1);
+  }
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+start();
 
 module.exports = app;

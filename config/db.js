@@ -11,14 +11,10 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
-// Test database connection
+// Test database connection (throws on failure — caller should await before listen)
 const testConnection = async () => {
-  try {
-    const connection = await pool.getConnection();
-    connection.release();
-  } catch (error) {
-    process.exit(1);
-  }
+  const connection = await pool.getConnection();
+  connection.release();
 };
 
 module.exports = { pool, testConnection };
